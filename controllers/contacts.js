@@ -1,10 +1,16 @@
 const { Contact } = require("../models/contacts");
 
 const { HttpError } = require("../helpers");
-const { ctrlWrapper } = require("../middlewares");
+const { ctrlWrapper } = require("../helpers");
 
-const listContacts = async (_, res) => {
-  const result = await Contact.find();
+const listContacts = async (req, res) => {
+  const { _id: owner } = req.user;
+  const { page = 1, limit = 30 } = req.query;
+  const skip = (page - 1) * limit;
+  const result = await Contact.find({ owner }, "-createdAt -updatedAt", {
+    skip,
+    limit,
+  }).populate("owner", "name email");
   res.json({
     status: "succes",
     code: 200,
@@ -12,7 +18,8 @@ const listContacts = async (_, res) => {
   });
 };
 const addContact = async (req, res) => {
-  const result = await Contact.create(req.body);
+  const { _id: owner } = req.user;
+  const result = await Contact.create({ ...req.body, owner });
   res.status(201).json({
     status: "succes",
     code: 201,
