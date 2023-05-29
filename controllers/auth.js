@@ -1,6 +1,5 @@
 const { User } = require("../models/user");
-const { HttpError } = require("../helpers");
-const { ctrlWrapper } = require("../helpers");
+const { HttpError, ctrlWrapper, sendEmail } = require("../helpers");
 const bcrypt = require("bcryptjs");
 const path = require("path");
 const jwt = require("jsonwebtoken");
@@ -8,28 +7,33 @@ const gravatar = require("gravatar");
 const fs = require("fs/promises");
 const Jimp = require("jimp");
 require("dotenv").config();
-const { SECRET_KEY } = process.env;
+const { SECRET_KEY, BASE_URL } = process.env;
 const avatarsDir = path.join(__dirname, "../", "public", "avatars");
+const nanoid = require("nanoid");
 
 const register = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, subscription = "starter" } = req.body;
   const user = await User.findOne({ email });
   if (user) {
     throw HttpError(409, " Email already in use");
   }
   const hashPassword = await bcrypt.hash(password, 10);
   const avatarURL = gravatar.url(email);
-  console.log(avatarURL);
+  const verificationToken = nanoid();
   const newUser = await User.create({
     ...req.body,
     password: hashPassword,
     avatarURL,
+    verificationToken,
   });
+  console.log("verificationToken", verificationToken);
+  await sendEmail(email, verificationToken);
   res.status(201).json({
     email: newUser.email,
     // name: newUser.name,
   });
 };
+
 const login = async (req, res) => {
   const { email, password } = req.body;
   console.log(req.body);
